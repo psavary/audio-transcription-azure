@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: ./src/frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    env_file:
+      - ./src/frontend/.env
+    environment:
+      - VUE_APP_API_URL=http://localhost:3000
+
+  backend:
+    build: ./src/backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./src/backend/.env
+    volumes:
+      - ./src/backend/uploads:/app/uploads 
