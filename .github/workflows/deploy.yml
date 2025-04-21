@@ -43,34 +43,36 @@ jobs:
           docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest ./src/backend
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest
 
-      - name: Deploy to Azure Container Instances
+      - name: Deploy frontend to Azure Container Instances
         uses: azure/aci-deploy@v1
         with:
           resource-group: ${{ env.RESOURCE_GROUP }}
-          container-group-name: ${{ env.CONTAINER_GROUP_NAME }}
+          name: frontend
+          image: ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest
+          registry-login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
+          registry-username: ${{ env.REGISTRY_USERNAME }}
+          registry-password: ${{ env.REGISTRY_PASSWORD }}
           dns-name-label: ${{ env.DNS_NAME_LABEL }}
           location: ${{ env.LOCATION }}
-          containers: |
-            [
-              {
-                "name": "frontend",
-                "image": "${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest",
-                "ports": [{"port": 80}],
-                "cpu": 1,
-                "memory": 1,
-                "environment-variables": [
-                  {"name": "VUE_APP_API_URL", "value": "http://localhost:3000"}
-                ]
-              },
-              {
-                "name": "backend",
-                "image": "${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest",
-                "ports": [{"port": 3000}],
-                "cpu": 1,
-                "memory": 1,
-                "environment-variables": [
-                  {"name": "AZURE_SPEECH_KEY", "value": "${{ env.AZURE_SPEECH_KEY }}"},
-                  {"name": "AZURE_SPEECH_REGION", "value": "${{ env.AZURE_SPEECH_REGION }}"}
-                ]
-              }
-            ] 
+          ports: 80
+          cpu: 1
+          memory: 1
+          environment-variables: |
+            VUE_APP_API_URL=http://localhost:3000
+
+      - name: Deploy backend to Azure Container Instances
+        uses: azure/aci-deploy@v1
+        with:
+          resource-group: ${{ env.RESOURCE_GROUP }}
+          name: backend
+          image: ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest
+          registry-login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
+          registry-username: ${{ env.REGISTRY_USERNAME }}
+          registry-password: ${{ env.REGISTRY_PASSWORD }}
+          location: ${{ env.LOCATION }}
+          ports: 3000
+          cpu: 1
+          memory: 1
+          environment-variables: |
+            AZURE_SPEECH_KEY=${{ env.AZURE_SPEECH_KEY }}
+            AZURE_SPEECH_REGION=${{ env.AZURE_SPEECH_REGION }} 
