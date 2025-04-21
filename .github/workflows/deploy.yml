@@ -2,7 +2,7 @@ name: Deploy to Azure Container Instances
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
 
 env:
   REGISTRY_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
