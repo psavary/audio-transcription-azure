@@ -1,4 +1,4 @@
-name: Deploy to Azure Container Instances
+name: Deploy to Azure Container Apps
 
 on:
   push:
@@ -9,9 +9,8 @@ env:
   REGISTRY_USERNAME: ${{ vars.ACR_USERNAME }}
   REGISTRY_PASSWORD: ${{ secrets.ACR_PASSWORD }}
   RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
-  CONTAINER_GROUP_NAME: ${{ vars.CONTAINER_GROUP_NAME }}
-  DNS_NAME_LABEL: ${{ vars.CONTAINER_GROUP_NAME }}
   LOCATION: ${{ vars.LOCATION }}
+  CONTAINERAPPS_ENVIRONMENT: ${{ vars.CONTAINER_GROUP_NAME }}
   AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
   AZURE_SPEECH_REGION: ${{ vars.AZURE_SPEECH_REGION }}
 
@@ -25,12 +24,6 @@ jobs:
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Delete existing container group
-        run: |
-          az container delete --yes \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
-            --name ${{ env.CONTAINER_GROUP_NAME }}
 
       - name: Build and push frontend container
         uses: azure/docker-login@v1
@@ -49,37 +42,43 @@ jobs:
           docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest ./src/backend
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest
 
-      - name: Deploy frontend to Azure Container Instances
-        uses: azure/aci-deploy@v1
-        with:
-          resource-group: ${{ env.RESOURCE_GROUP }}
-          name: ${{ env.CONTAINER_GROUP_NAME }}-frontend
-          image: ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest
-          registry-login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
-          registry-username: ${{ env.REGISTRY_USERNAME }}
-          registry-password: ${{ env.REGISTRY_PASSWORD }}
-          dns-name-label: ${{ env.DNS_NAME_LABEL }}
-          location: ${{ env.LOCATION }}
-          ports: 80
-          cpu: 1
-          memory: 1
-          environment-variables: |
-            VUE_APP_API_URL=https://${{ env.DNS_NAME_LABEL }}-backend.${{ env.LOCATION }}.azurecontainer.io:3000
+      - name: Create Container Apps Environment
+        run: |
+          az extension add --name containerapp --upgrade
+          az containerapp env create \
+            --name ${{ env.CONTAINERAPPS_ENVIRONMENT }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --location ${{ env.LOCATION }}
 
-      - name: Deploy backend to Azure Container Instances
-        uses: azure/aci-deploy@v1
-        with:
-          resource-group: ${{ env.RESOURCE_GROUP }}
-          name: ${{ env.CONTAINER_GROUP_NAME }}-backend
-          image: ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest
-          registry-login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
-          registry-username: ${{ env.REGISTRY_USERNAME }}
-          registry-password: ${{ env.REGISTRY_PASSWORD }}
-          location: ${{ env.LOCATION }}
-          dns-name-label: ${{ env.DNS_NAME_LABEL }}-backend
-          ports: 3000
-          cpu: 1
-          memory: 1
-          environment-variables: |
-            AZURE_SPEECH_KEY=${{ env.AZURE_SPEECH_KEY }}
-            AZURE_SPEECH_REGION=${{ env.AZURE_SPEECH_REGION }} 
+      - name: Deploy backend to Container Apps
+        run: |
+          az containerapp create \
+            --name backend \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --environment ${{ env.CONTAINERAPPS_ENVIRONMENT }} \
+            --image ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest \
+            --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
+            --registry-username ${{ env.REGISTRY_USERNAME }} \
+            --registry-password ${{ env.REGISTRY_PASSWORD }} \
+            --target-port 3000 \
+            --ingress internal \
+            --env-vars AZURE_SPEECH_KEY=${{ env.AZURE_SPEECH_KEY }} AZURE_SPEECH_REGION=${{ env.AZURE_SPEECH_REGION }} \
+            --min-replicas 1 \
+            --max-replicas 1
+
+      - name: Deploy frontend to Container Apps
+        run: |
+          BACKEND_FQDN=$(az containerapp show --name backend --resource-group ${{ env.RESOURCE_GROUP }} --query properties.configuration.ingress.fqdn -o tsv)
+          az containerapp create \
+            --name frontend \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --environment ${{ env.CONTAINERAPPS_ENVIRONMENT }} \
+            --image ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest \
+            --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
+            --registry-username ${{ env.REGISTRY_USERNAME }} \
+            --registry-password ${{ env.REGISTRY_PASSWORD }} \
+            --target-port 80 \
+            --ingress external \
+            --env-vars VITE_API_URL=https://${BACKEND_FQDN} \
+            --min-replicas 1 \
+            --max-replicas 1 
