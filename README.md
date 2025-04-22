@@ -18,6 +18,7 @@ This project provides a web application for audio transcription with speaker dia
 - Azure account with Speech Services enabled
 - Azure Container Registry
 - GitHub account
+- FFmpeg (required for local audio transcoding; install via Homebrew or package manager)
 
 ## Required Azure Resources
 
@@ -104,6 +105,11 @@ To set up:
    - Add your Azure Speech Services credentials
 
 ## Development
+
+### FFmpeg (Local Development)
+Before running the app locally, ensure FFmpeg is installed on your machine:
+- macOS (Homebrew): `brew install ffmpeg`
+- Ubuntu/Debian: `sudo apt-get update && sudo apt-get install -y ffmpeg`
 
 ### Running with npm
 ```bash
