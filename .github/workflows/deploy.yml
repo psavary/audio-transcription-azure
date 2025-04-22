@@ -10,7 +10,7 @@ env:
   REGISTRY_PASSWORD: ${{ secrets.ACR_PASSWORD }}
   RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
   CONTAINER_GROUP_NAME: ${{ vars.CONTAINER_GROUP_NAME }}
-  DNS_NAME_LABEL: ${{ vars.CONTAINER_GROUP_NAME }}-${{ github.run_id }}
+  DNS_NAME_LABEL: ${{ vars.CONTAINER_GROUP_NAME }}
   LOCATION: ${{ vars.LOCATION }}
   AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
   AZURE_SPEECH_REGION: ${{ vars.AZURE_SPEECH_REGION }}
@@ -53,7 +53,7 @@ jobs:
         uses: azure/aci-deploy@v1
         with:
           resource-group: ${{ env.RESOURCE_GROUP }}
-          name: ${{ env.CONTAINER_GROUP_NAME }}
+          name: ${{ env.CONTAINER_GROUP_NAME }}-frontend
           image: ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest
           registry-login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
           registry-username: ${{ env.REGISTRY_USERNAME }}
@@ -64,13 +64,13 @@ jobs:
           cpu: 1
           memory: 1
           environment-variables: |
-            VUE_APP_API_URL=http://backend:3000
+            VUE_APP_API_URL=https://${{ env.DNS_NAME_LABEL }}-backend.${{ env.LOCATION }}.azurecontainer.io:3000
 
       - name: Deploy backend to Azure Container Instances
         uses: azure/aci-deploy@v1
         with:
           resource-group: ${{ env.RESOURCE_GROUP }}
-          name: ${{ env.CONTAINER_GROUP_NAME }}
+          name: ${{ env.CONTAINER_GROUP_NAME }}-backend
           image: ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest
           registry-login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
           registry-username: ${{ env.REGISTRY_USERNAME }}
