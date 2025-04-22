@@ -62,9 +62,10 @@ jobs:
             --registry-password ${{ env.REGISTRY_PASSWORD }} \
             --target-port 3000 \
             --ingress internal \
-            --env-vars AZURE_SPEECH_KEY=${{ env.AZURE_SPEECH_KEY }} AZURE_SPEECH_REGION=${{ env.AZURE_SPEECH_REGION }} \
-            --min-replicas 1 \
-            --max-replicas 1
+            --env-vars "AZURE_SPEECH_KEY=${{ env.AZURE_SPEECH_KEY }}" \
+            --env-vars "AZURE_SPEECH_REGION=${{ env.AZURE_SPEECH_REGION }}" \
+            --scale-min-replicas 1 \
+            --scale-max-replicas 1
 
       - name: Deploy frontend to Container Apps
         run: |
