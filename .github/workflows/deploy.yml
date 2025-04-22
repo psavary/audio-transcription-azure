@@ -3,6 +3,10 @@ name: Deploy to Azure Container Apps
 on:
   push:
     branches: [ master ]
+    paths:
+      - 'src/frontend/**'
+      - 'src/backend/**'
+      - '.github/workflows/deploy.yml'
 
 env:
   REGISTRY_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
@@ -26,6 +30,7 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Build and push frontend container
+        if: contains(github.event.head_commit.modified, 'src/frontend/') || contains(github.event.head_commit.added, 'src/frontend/')
         uses: azure/docker-login@v1
         with:
           login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
@@ -33,11 +38,13 @@ jobs:
           password: ${{ env.REGISTRY_PASSWORD }}
       
       - name: Build and push frontend container
+        if: contains(github.event.head_commit.modified, 'src/frontend/') || contains(github.event.head_commit.added, 'src/frontend/')
         run: |
           docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest ./src/frontend
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest
 
       - name: Build and push backend container
+        if: contains(github.event.head_commit.modified, 'src/backend/') || contains(github.event.head_commit.added, 'src/backend/')
         run: |
           docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest ./src/backend
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest
@@ -51,6 +58,8 @@ jobs:
             --location ${{ env.LOCATION }}
 
       - name: Deploy backend to Container Apps
+        if: contains(github.event.head_commit.modified, 'src/backend/') || contains(github.event.head_commit.added, 'src/backend/')
+        id: deploy-backend
         run: |
           az containerapp create \
             --name backend \
@@ -61,15 +70,19 @@ jobs:
             --registry-username ${{ env.REGISTRY_USERNAME }} \
             --registry-password ${{ env.REGISTRY_PASSWORD }} \
             --target-port 3000 \
-            --ingress internal \
+            --ingress external \
             --env-vars "AZURE_SPEECH_KEY=${{ env.AZURE_SPEECH_KEY }}" \
             --env-vars "AZURE_SPEECH_REGION=${{ env.AZURE_SPEECH_REGION }}" \
             --min-replicas 1 \
-            --max-replicas 1
+            --max-replicas 1 \
+            --cpu 0.25 \
+            --memory 0.5Gi
+          BACKEND_FQDN=$(az containerapp show --name backend --resource-group ${{ env.RESOURCE_GROUP }} --query properties.configuration.ingress.fqdn -o tsv)
+          echo "BACKEND_FQDN=$BACKEND_FQDN" >> $GITHUB_ENV
 
       - name: Deploy frontend to Container Apps
+        if: contains(github.event.head_commit.modified, 'src/frontend/') || contains(github.event.head_commit.added, 'src/frontend/')
         run: |
-          BACKEND_FQDN=$(az containerapp show --name backend --resource-group ${{ env.RESOURCE_GROUP }} --query properties.configuration.ingress.fqdn -o tsv)
           az containerapp create \
             --name frontend \
             --resource-group ${{ env.RESOURCE_GROUP }} \
@@ -80,6 +93,8 @@ jobs:
             --registry-password ${{ env.REGISTRY_PASSWORD }} \
             --target-port 80 \
             --ingress external \
-            --env-vars VITE_API_URL=https://${BACKEND_FQDN} \
+            --env-vars "VITE_API_URL=https://${{ env.BACKEND_FQDN }}:3000" \
             --min-replicas 1 \
-            --max-replicas 1 
+            --max-replicas 1 \
+            --cpu 0.25 \
+            --memory 0.5Gi 
