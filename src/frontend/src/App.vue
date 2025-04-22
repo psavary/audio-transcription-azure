@@ -146,6 +146,7 @@ const formatTime = (nanoseconds) => {
           <option value="de-DE">German</option>
           <option value="fr-FR">French</option>
           <option value="en-US">English (US)</option>
+          <option value="it-IT">Italian</option>
         </select>
       </div>
 

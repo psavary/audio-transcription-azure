@@ -5,6 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const sdk = require('microsoft-cognitiveservices-speech-sdk');
+const { spawn } = require('child_process');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -56,7 +57,7 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
             console.log('Using specific language:', language);
         } else {
             // Enable auto-detection with a focused set of 4 languages
-            speechConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_AutoDetectSourceLanguages, "de-DE,fr-FR,en-US,it-CH");
+            speechConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_AutoDetectSourceLanguages, "de-CH,fr-FR,en-US,it-CH");
             
             // Enable continuous language detection
             speechConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_LanguageIdMode, "Continuous");
@@ -88,9 +89,34 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
         console.log('Speech config created with language:', language);
         console.log('Processing file:', req.file.path);
 
-        const audioConfig = sdk.AudioConfig.fromWavFileInput(fs.readFileSync(req.file.path));
-        
-        // Create conversation transcriber
+        // Determine if input is WAV: skip FFmpeg and use direct file input for WAV
+        let audioConfig;
+        if (path.extname(req.file.path).toLowerCase() === '.wav') {
+            console.log('Using direct WAV input for transcription');
+            audioConfig = sdk.AudioConfig.fromWavFileInput(fs.readFileSync(req.file.path));
+        } else {
+            console.log('Transcoding and filtering audio with FFmpeg');
+            const pushStream = sdk.AudioInputStream.createPushStream();
+            const ffmpeg = spawn('ffmpeg', [
+                '-i', req.file.path,
+                '-af', 'highpass=f=200,lowpass=f=3000',
+                '-f', 'wav',
+                '-acodec', 'pcm_s16le',
+                '-ac', '1',
+                '-ar', '16000',
+                'pipe:1'
+            ]);
+            ffmpeg.stderr.on('data', data => console.error('FFmpeg stderr:', data.toString()));
+            ffmpeg.on('error', err => console.error('Failed to start FFmpeg:', err));
+            ffmpeg.stdout.on('data', chunk => pushStream.write(chunk));
+            ffmpeg.on('close', code => {
+                console.log(`FFmpeg exited with code ${code}`);
+                pushStream.close();
+            });
+            audioConfig = sdk.AudioConfig.fromStreamInput(pushStream);
+        }
+
+        // Create conversation transcriber with the chosen audio config
         const transcriber = new sdk.ConversationTranscriber(speechConfig, audioConfig);
 
         let transcription = [];
