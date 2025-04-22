@@ -180,7 +180,7 @@ This is a JSON string containing your Azure service principal credentials. Creat
 
 ### Required Variables
 Add these variables in your GitHub repository (Settings > Secrets and variables > Actions > Variables):
-- `ACR_LOGIN_SERVER`: Your Azure Container Registry server (e.g., craistuff.azurecr.io)
+- `ACR_LOGIN_SERVER`: Your Azure Container Registry server (e.g., yourregistryname.azurecr.io)
 - `ACR_USERNAME`: Your Azure Container Registry username
 - `RESOURCE_GROUP`: Your Azure resource group name
 - `CONTAINER_GROUP_NAME`: Name for your container group
