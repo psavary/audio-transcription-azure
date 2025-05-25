@@ -3,10 +3,6 @@ name: Deploy to Azure Container Apps
 on:
   push:
     branches: [ master ]
-    paths:
-      - 'src/frontend/**'
-      - 'src/backend/**'
-      - '.github/workflows/deploy.yml'
   workflow_dispatch:
     inputs:
       deploy_frontend:
@@ -40,7 +36,6 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Build and push frontend container
-        if: (github.event_name == 'workflow_dispatch' && inputs.deploy_frontend) || (github.event_name == 'push' && (contains(github.event.head_commit.modified, 'src/frontend/') || contains(github.event.head_commit.added, 'src/frontend/')))
         uses: azure/docker-login@v1
         with:
           login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
@@ -48,13 +43,11 @@ jobs:
           password: ${{ env.REGISTRY_PASSWORD }}
       
       - name: Build and push frontend container
-        if: (github.event_name == 'workflow_dispatch' && inputs.deploy_frontend) || (github.event_name == 'push' && (contains(github.event.head_commit.modified, 'src/frontend/') || contains(github.event.head_commit.added, 'src/frontend/')))
         run: |
           docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest ./src/frontend
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest
 
       - name: Build and push backend container
-        if: (github.event_name == 'workflow_dispatch' && inputs.deploy_backend) || (github.event_name == 'push' && (contains(github.event.head_commit.modified, 'src/backend/') || contains(github.event.head_commit.added, 'src/backend/')))
         run: |
           docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest ./src/backend
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest
@@ -68,7 +61,6 @@ jobs:
             --location ${{ env.LOCATION }}
 
       - name: Deploy backend to Container Apps
-        if: (github.event_name == 'workflow_dispatch' && inputs.deploy_backend) || (github.event_name == 'push' && (contains(github.event.head_commit.modified, 'src/backend/') || contains(github.event.head_commit.added, 'src/backend/')))
         id: deploy-backend
         run: |
           az containerapp create \
@@ -91,7 +83,6 @@ jobs:
           echo "BACKEND_FQDN=$BACKEND_FQDN" >> $GITHUB_ENV
 
       - name: Deploy frontend to Container Apps
-        if: (github.event_name == 'workflow_dispatch' && inputs.deploy_frontend) || (github.event_name == 'push' && (contains(github.event.head_commit.modified, 'src/frontend/') || contains(github.event.head_commit.added, 'src/frontend/')))
         run: |
           az containerapp create \
             --name frontend \
