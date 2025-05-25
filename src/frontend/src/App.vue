@@ -47,10 +47,11 @@ const startTranscription = async () => {
   formData.append('language', selectedLanguage.value)
 
   try {
-    const response = await axios.post('http://localhost:3000/upload', formData, {
+    const response = await axios.post('http://127.0.0.1:3000/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
+      withCredentials: false,
       onUploadProgress: (progressEvent) => {
         uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total)
         progressMessage.value = `Uploading file... ${uploadProgress.value}%`
@@ -73,7 +74,7 @@ const startTranscription = async () => {
           message.value = response.data.message || 'Transcription completed'
           
           const audioFileName = response.data.audioFile.split('/').pop()
-          audioUrl.value = `http://localhost:3000/audio/${audioFileName}`
+          audioUrl.value = `http://127.0.0.1:3000/audio/${audioFileName}`
         }
       } else {
         message.value = 'No speech detected in the audio file'
