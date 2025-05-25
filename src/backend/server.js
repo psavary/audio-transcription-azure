@@ -10,12 +10,15 @@ const { spawn } = require('child_process');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
+
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type']
+    credentials: false,
+    preflightContinue: true,
+    optionsSuccessStatus: 204
 }));
+
 app.use(express.json());
 
 // Health check endpoint
@@ -26,9 +29,9 @@ app.get('/', (req, res) => {
 // Configure multer for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const uploadDir = 'uploads';
+        const uploadDir = path.join(__dirname, 'uploads');
         if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir);
+            fs.mkdirSync(uploadDir, { recursive: true });
         }
         cb(null, uploadDir);
     },
@@ -264,6 +267,9 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
 // Serve audio files
 app.get('/audio/:filename', (req, res) => {
     const filePath = path.join(__dirname, 'uploads', req.params.filename);
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Audio file not found' });
+    }
     res.sendFile(filePath);
 });
 
