@@ -103,7 +103,7 @@ jobs:
             --registry-password ${{ env.REGISTRY_PASSWORD }} \
             --target-port 80 \
             --ingress external \
-            --env-vars "VITE_API_URL=https://${{ env.BACKEND_FQDN }}:3000" \
+            --env-vars "VITE_API_URL=https://${{ env.BACKEND_FQDN }}" \
             --min-replicas 1 \
             --max-replicas 1 \
             --cpu 0.25 \
