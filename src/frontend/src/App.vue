@@ -74,7 +74,7 @@ const startTranscription = async () => {
           message.value = response.data.message || 'Transcription completed'
           
           const audioFileName = response.data.audioFile.split('/').pop()
-          audioUrl.value = `http://127.0.0.1:3000/audio/${audioFileName}`
+          audioUrl.value = `${import.meta.env.VITE_API_URL}/audio/${audioFileName}`
         }
       } else {
         message.value = 'No speech detected in the audio file'
