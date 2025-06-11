@@ -10,14 +10,19 @@ const { spawn } = require('child_process');
 const app = express();
 const port = process.env.PORT || 3000;
 
-
+// Enable CORS for all routes
 app.use(cors({
-    origin: '*',
+    origin: true,
     methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'Accept', 'Origin'],
+    exposedHeaders: ['Content-Length', 'X-Requested-With', 'Content-Type'],
     credentials: false,
-    preflightContinue: true,
+    preflightContinue: false,
     optionsSuccessStatus: 204
 }));
+
+// Handle OPTIONS requests explicitly
+app.options('*', cors());
 
 app.use(express.json());
 
@@ -64,7 +69,7 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
             console.log('Using specific language:', language);
         } else {
             // Enable auto-detection with a focused set of 4 languages
-            speechConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_AutoDetectSourceLanguages, "de-CH,fr-FR,en-US,it-CH");
+            speechConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_AutoDetectSourceLanguages, "de-CH");
             
             // Enable continuous language detection
             speechConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_LanguageIdMode, "Continuous");
