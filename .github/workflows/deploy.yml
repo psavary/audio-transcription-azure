@@ -35,7 +35,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Build and push frontend container
+      - name: Azure Container Registry login
         uses: azure/docker-login@v1
         with:
           login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
@@ -60,8 +60,18 @@ jobs:
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --location ${{ env.LOCATION }}
 
+      - name: Check if backend exists
+        id: check-backend
+        run: |
+          if az containerapp show --name backend --resource-group ${{ env.RESOURCE_GROUP }} &>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Deploy backend to Container Apps
         id: deploy-backend
+        if: steps.check-backend.outputs.exists == 'false'
         run: |
           az containerapp create \
             --name backend \
@@ -79,20 +89,35 @@ jobs:
             --max-replicas 1 \
             --cpu 0.25 \
             --memory 0.5Gi
+
+      - name: Update backend in Container Apps
+        if: steps.check-backend.outputs.exists == 'true'
+        run: |
+          az containerapp update \
+            --name backend \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest \
+            --set-env-vars "AZURE_SPEECH_KEY=${{ env.AZURE_SPEECH_KEY }}" \
+            --set-env-vars "AZURE_SPEECH_REGION=${{ env.AZURE_SPEECH_REGION }}"
+
+      - name: Get backend FQDN
+        run: |
           BACKEND_FQDN=$(az containerapp show --name backend --resource-group ${{ env.RESOURCE_GROUP }} --query properties.configuration.ingress.fqdn -o tsv)
           echo "BACKEND_FQDN=$BACKEND_FQDN" >> $GITHUB_ENV
 
-      - name: Deploy frontend to Container Apps
+      - name: Check if frontend exists
+        id: check-frontend
         run: |
-          az containerapp update \
-            --name frontend \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest \
-            --set-env-vars "VITE_API_URL=https://${{ env.BACKEND_FQDN }}"
+          if az containerapp show --name frontend --resource-group ${{ env.RESOURCE_GROUP }} &>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Deploy frontend to Container Apps
+        if: steps.check-frontend.outputs.exists == 'false'
         run: |
-          az containerapp update \
+          az containerapp create \
             --name frontend \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --environment ${{ env.CONTAINERAPPS_ENVIRONMENT }} \
@@ -106,4 +131,13 @@ jobs:
             --min-replicas 1 \
             --max-replicas 1 \
             --cpu 0.25 \
-            --memory 0.5Gi 
+            --memory 0.5Gi
+
+      - name: Update frontend in Container Apps
+        if: steps.check-frontend.outputs.exists == 'true'
+        run: |
+          az containerapp update \
+            --name frontend \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest \
+            --set-env-vars "VITE_API_URL=https://${{ env.BACKEND_FQDN }}" 
