@@ -31,6 +31,11 @@ const startTranscription = async () => {
     return
   }
 
+  // Debug logs
+  console.log('Environment:', import.meta.env)
+  console.log('API URL:', import.meta.env.VITE_API_URL)
+  console.log('Full upload URL:', `${import.meta.env.VITE_API_URL}/upload`)
+
   isProcessing.value = true
   error.value = ''
   errorDetails.value = ''
