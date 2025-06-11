@@ -52,6 +52,7 @@ const startTranscription = async () => {
   formData.append('language', selectedLanguage.value)
 
   try {
+    console.log('Making request to:', `${import.meta.env.VITE_API_URL}/upload`)
     const response = await axios.post(`${import.meta.env.VITE_API_URL}/upload`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
@@ -86,6 +87,10 @@ const startTranscription = async () => {
       }
     }
   } catch (err) {
+    console.error('Full error object:', err)
+    console.error('Error config:', err.config)
+    console.error('Error request:', err.request)
+    console.error('Error response:', err.response)
     error.value = 'Failed to process audio file. Please try again.'
     errorDetails.value = err.response?.data?.details || err.message
     console.error('Error:', err)

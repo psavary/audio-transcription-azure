@@ -49,13 +49,19 @@ const upload = multer({ storage });
 
 // Upload endpoint
 app.post('/upload', upload.single('audio'), async (req, res) => {
+    console.log('Received upload request')
+    console.log('Headers:', req.headers)
+    console.log('Origin:', req.headers.origin)
     try {
         if (!req.file) {
+            console.log('No file uploaded')
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
+        console.log('File received:', req.file)
         // Get language from request body or use auto-detection
         const language = req.body.language || 'auto-detect';
+        console.log('Language:', language)
 
         // Create speech config with the selected language
         const speechConfig = sdk.SpeechConfig.fromSubscription(
