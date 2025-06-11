@@ -84,7 +84,7 @@ jobs:
 
       - name: Deploy frontend to Container Apps
         run: |
-          az containerapp create \
+          az containerapp update \
             --name frontend \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --environment ${{ env.CONTAINERAPPS_ENVIRONMENT }} \
