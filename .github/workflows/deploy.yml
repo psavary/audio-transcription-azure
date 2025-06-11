@@ -87,6 +87,14 @@ jobs:
           az containerapp update \
             --name frontend \
             --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest \
+            --set-env-vars "VITE_API_URL=https://${{ env.BACKEND_FQDN }}"
+
+      - name: Deploy frontend to Container Apps
+        run: |
+          az containerapp update \
+            --name frontend \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
             --environment ${{ env.CONTAINERAPPS_ENVIRONMENT }} \
             --image ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest \
             --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
