@@ -19,6 +19,8 @@ const uploadProgress = ref(0)
 const processingProgress = ref(0)
 const progressMessage = ref('')
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
 const handleFileUpload = (event) => {
   selectedFile.value = event.target.files[0]
   error.value = ''
@@ -33,8 +35,8 @@ const startTranscription = async () => {
 
   // Debug logs
   console.log('Environment:', import.meta.env)
-  console.log('API URL:', import.meta.env.VITE_API_URL)
-  console.log('Full upload URL:', `${import.meta.env.VITE_API_URL}/upload`)
+  console.log('API URL:', API_URL)
+  console.log('Full upload URL:', `${API_URL}/upload`)
 
   isProcessing.value = true
   error.value = ''
@@ -52,8 +54,8 @@ const startTranscription = async () => {
   formData.append('language', selectedLanguage.value)
 
   try {
-    console.log('Making request to:', `${import.meta.env.VITE_API_URL}/upload`)
-    const response = await axios.post(`${import.meta.env.VITE_API_URL}/upload`, formData, {
+    console.log('Making request to:', `${API_URL}/upload`)
+    const response = await axios.post(`${API_URL}/upload`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
@@ -80,7 +82,7 @@ const startTranscription = async () => {
           message.value = response.data.message || 'Transcription completed'
           
           const audioFileName = response.data.audioFile.split('/').pop()
-          audioUrl.value = `${import.meta.env.VITE_API_URL}/audio/${audioFileName}`
+          audioUrl.value = `${API_URL}/audio/${audioFileName}`
         }
       } else {
         message.value = 'No speech detected in the audio file'

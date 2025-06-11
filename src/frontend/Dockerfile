@@ -8,6 +8,9 @@ RUN npm install
 
 COPY . .
 
+# Create .env file for build
+RUN echo "VITE_API_URL=${VITE_API_URL:-http://localhost:3000}" > .env
+
 RUN npm run build
 
 FROM node:18-alpine
