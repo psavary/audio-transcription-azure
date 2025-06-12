@@ -8,8 +8,9 @@ RUN npm install
 
 COPY . .
 
-# Create .env file for build
-RUN echo "VITE_API_URL=${VITE_API_URL:-http://localhost:3000}" > .env
+# Set build-time environment variable
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
 

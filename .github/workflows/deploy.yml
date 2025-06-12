@@ -42,11 +42,6 @@ jobs:
           username: ${{ env.REGISTRY_USERNAME }}
           password: ${{ env.REGISTRY_PASSWORD }}
       
-      - name: Build and push frontend container
-        run: |
-          docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest ./src/frontend
-          docker push ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest
-
       - name: Build and push backend container
         run: |
           docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest ./src/backend
@@ -105,6 +100,14 @@ jobs:
           BACKEND_FQDN=$(az containerapp show --name backend --resource-group ${{ env.RESOURCE_GROUP }} --query properties.configuration.ingress.fqdn -o tsv)
           echo "BACKEND_FQDN=$BACKEND_FQDN" >> $GITHUB_ENV
 
+      - name: Build and push frontend container
+        run: |
+          docker build \
+            --build-arg VITE_API_URL=https://${{ env.BACKEND_FQDN }} \
+            -t ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest \
+            ./src/frontend
+          docker push ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest
+
       - name: Check if frontend exists
         id: check-frontend
         run: |
@@ -127,7 +130,6 @@ jobs:
             --registry-password ${{ env.REGISTRY_PASSWORD }} \
             --target-port 80 \
             --ingress external \
-            --env-vars "VITE_API_URL=https://${{ env.BACKEND_FQDN }}" \
             --min-replicas 1 \
             --max-replicas 1 \
             --cpu 0.25 \
@@ -139,5 +141,4 @@ jobs:
           az containerapp update \
             --name frontend \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest \
-            --set-env-vars "VITE_API_URL=https://${{ env.BACKEND_FQDN }}" 
+            --image ${{ env.REGISTRY_LOGIN_SERVER }}/frontend:latest 
