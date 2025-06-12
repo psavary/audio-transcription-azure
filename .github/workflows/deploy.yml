@@ -68,6 +68,7 @@ jobs:
         id: deploy-backend
         if: steps.check-backend.outputs.exists == 'false'
         run: |
+          echo "Setting up backend with Speech Key: ${AZURE_SPEECH_KEY:0:4}..." # Show first 4 chars for verification
           az containerapp create \
             --name backend \
             --resource-group ${{ env.RESOURCE_GROUP }} \
@@ -78,8 +79,7 @@ jobs:
             --registry-password ${{ env.REGISTRY_PASSWORD }} \
             --target-port 3000 \
             --ingress external \
-            --env-vars "AZURE_SPEECH_KEY=${{ env.AZURE_SPEECH_KEY }}" \
-            --env-vars "AZURE_SPEECH_REGION=${{ env.AZURE_SPEECH_REGION }}" \
+            --env-vars AZURE_SPEECH_KEY=${{ secrets.AZURE_SPEECH_KEY }} AZURE_SPEECH_REGION=${{ vars.AZURE_SPEECH_REGION }} \
             --min-replicas 1 \
             --max-replicas 1 \
             --cpu 0.25 \
@@ -88,12 +88,12 @@ jobs:
       - name: Update backend in Container Apps
         if: steps.check-backend.outputs.exists == 'true'
         run: |
+          echo "Updating backend with Speech Key: ${AZURE_SPEECH_KEY:0:4}..." # Show first 4 chars for verification
           az containerapp update \
             --name backend \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest \
-            --set-env-vars "AZURE_SPEECH_KEY=${{ env.AZURE_SPEECH_KEY }}" \
-            --set-env-vars "AZURE_SPEECH_REGION=${{ env.AZURE_SPEECH_REGION }}"
+            --set-env-vars AZURE_SPEECH_KEY=${{ secrets.AZURE_SPEECH_KEY }} AZURE_SPEECH_REGION=${{ vars.AZURE_SPEECH_REGION }}
 
       - name: Get backend FQDN
         run: |
