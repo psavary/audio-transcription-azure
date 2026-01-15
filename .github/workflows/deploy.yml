@@ -35,12 +35,38 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Azure Container Registry login
-        uses: azure/docker-login@v1
-        with:
-          login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
-          username: ${{ env.REGISTRY_USERNAME }}
-          password: ${{ env.REGISTRY_PASSWORD }}
+      - name: Create resource group if it doesn't exist
+        run: |
+          if ! az group show --name ${{ env.RESOURCE_GROUP }} &>/dev/null; then
+            echo "Creating resource group ${{ env.RESOURCE_GROUP }}..."
+            az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }}
+          else
+            echo "Resource group ${{ env.RESOURCE_GROUP }} already exists"
+          fi
+
+      - name: Create Azure Container Registry if it doesn't exist
+        run: |
+          ACR_NAME=$(echo ${{ env.REGISTRY_LOGIN_SERVER }} | sed 's/\.azurecr\.io//')
+          if ! az acr show --name $ACR_NAME --resource-group ${{ env.RESOURCE_GROUP }} &>/dev/null; then
+            echo "Creating Azure Container Registry $ACR_NAME..."
+            az acr create \
+              --name $ACR_NAME \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --sku Basic \
+              --admin-enabled true
+          else
+            echo "Azure Container Registry $ACR_NAME already exists"
+          fi
+
+      - name: Get ACR credentials and login
+        id: acr-login
+        run: |
+          ACR_NAME=$(echo ${{ env.REGISTRY_LOGIN_SERVER }} | sed 's/\.azurecr\.io//')
+          ACR_USERNAME=$(az acr credential show --name $ACR_NAME --query username -o tsv)
+          ACR_PASSWORD=$(az acr credential show --name $ACR_NAME --query passwords[0].value -o tsv)
+          echo $ACR_PASSWORD | docker login ${{ env.REGISTRY_LOGIN_SERVER }} --username $ACR_USERNAME --password-stdin
+          echo "REGISTRY_USERNAME=$ACR_USERNAME" >> $GITHUB_ENV
+          echo "REGISTRY_PASSWORD=$ACR_PASSWORD" >> $GITHUB_ENV
       
       - name: Build and push backend container
         run: |
@@ -50,10 +76,15 @@ jobs:
       - name: Create Container Apps Environment
         run: |
           az extension add --name containerapp --upgrade
-          az containerapp env create \
-            --name ${{ env.CONTAINERAPPS_ENVIRONMENT }} \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
-            --location ${{ env.LOCATION }}
+          if ! az containerapp env show --name ${{ env.CONTAINERAPPS_ENVIRONMENT }} --resource-group ${{ env.RESOURCE_GROUP }} &>/dev/null; then
+            echo "Creating Container Apps Environment ${{ env.CONTAINERAPPS_ENVIRONMENT }}..."
+            az containerapp env create \
+              --name ${{ env.CONTAINERAPPS_ENVIRONMENT }} \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --location ${{ env.LOCATION }}
+          else
+            echo "Container Apps Environment ${{ env.CONTAINERAPPS_ENVIRONMENT }} already exists"
+          fi
 
       - name: Check if backend exists
         id: check-backend
