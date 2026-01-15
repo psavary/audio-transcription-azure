@@ -21,7 +21,6 @@ env:
   RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
   LOCATION: ${{ vars.LOCATION }}
   CONTAINERAPPS_ENVIRONMENT: ${{ vars.CONTAINER_GROUP_NAME }}
-  AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
   AZURE_SPEECH_REGION: ${{ vars.AZURE_SPEECH_REGION }}
 
 jobs:
@@ -43,6 +42,44 @@ jobs:
           else
             echo "Resource group ${{ env.RESOURCE_GROUP }} already exists"
           fi
+
+      - name: Create Azure Speech Service if it doesn't exist
+        id: speech-service
+        run: |
+          SPEECH_SERVICE_NAME="speech-service-$(echo ${{ env.RESOURCE_GROUP }} | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g')"
+          if ! az cognitiveservices account show --name "$SPEECH_SERVICE_NAME" --resource-group ${{ env.RESOURCE_GROUP }} &>/dev/null; then
+            echo "Creating Azure Speech Service $SPEECH_SERVICE_NAME..."
+            az cognitiveservices account create \
+              --name "$SPEECH_SERVICE_NAME" \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --kind SpeechServices \
+              --sku S0 \
+              --location ${{ env.LOCATION }}
+            echo "Speech Service created."
+            echo "created=true" >> $GITHUB_OUTPUT
+          else
+            echo "Azure Speech Service $SPEECH_SERVICE_NAME already exists"
+            echo "created=false" >> $GITHUB_OUTPUT
+          fi
+          echo "SPEECH_SERVICE_NAME=$SPEECH_SERVICE_NAME" >> $GITHUB_ENV
+
+      - name: Get Azure Speech Service key
+        id: get-speech-key
+        run: |
+          SPEECH_KEY=$(az cognitiveservices account keys list \
+            --name ${{ env.SPEECH_SERVICE_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query key1 -o tsv | tr -d '\n\r' | xargs)
+          if [ -z "$SPEECH_KEY" ]; then
+            echo "::error::Failed to retrieve Speech Service key"
+            exit 1
+          fi
+          KEY_LENGTH=${#SPEECH_KEY}
+          echo "Retrieved Speech Service key (length: ${KEY_LENGTH} characters)"
+          # Store in GITHUB_ENV for use in subsequent steps
+          echo "AZURE_SPEECH_KEY=$SPEECH_KEY" >> $GITHUB_ENV
+          # Also store in output for debugging (masked)
+          echo "key_retrieved=true" >> $GITHUB_OUTPUT
 
       - name: Create Azure Container Registry if it doesn't exist
         run: |
@@ -99,7 +136,7 @@ jobs:
         id: deploy-backend
         if: steps.check-backend.outputs.exists == 'false'
         run: |
-          SPEECH_KEY_PREFIX=$(echo "${{ secrets.AZURE_SPEECH_KEY }}" | cut -c1-4)
+          SPEECH_KEY_PREFIX=$(echo "${{ env.AZURE_SPEECH_KEY }}" | cut -c1-4)
           echo "Setting up backend with Speech Key: ${SPEECH_KEY_PREFIX}..."
           az containerapp create \
             --name backend \
@@ -111,7 +148,7 @@ jobs:
             --registry-password ${{ env.REGISTRY_PASSWORD }} \
             --target-port 3000 \
             --ingress external \
-            --env-vars AZURE_SPEECH_KEY="${{ secrets.AZURE_SPEECH_KEY }}" AZURE_SPEECH_REGION="${{ vars.AZURE_SPEECH_REGION }}"
+            --env-vars AZURE_SPEECH_KEY="${{ env.AZURE_SPEECH_KEY }}" AZURE_SPEECH_REGION="${{ vars.AZURE_SPEECH_REGION }}"
           az containerapp update \
             --name backend \
             --resource-group ${{ env.RESOURCE_GROUP }} \
@@ -123,13 +160,13 @@ jobs:
       - name: Update backend in Container Apps
         if: steps.check-backend.outputs.exists == 'true'
         run: |
-          SPEECH_KEY_PREFIX=$(echo "${{ secrets.AZURE_SPEECH_KEY }}" | cut -c1-4)
+          SPEECH_KEY_PREFIX=$(echo "${{ env.AZURE_SPEECH_KEY }}" | cut -c1-4)
           echo "Updating backend with Speech Key: ${SPEECH_KEY_PREFIX}..."
           az containerapp update \
             --name backend \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image ${{ env.REGISTRY_LOGIN_SERVER }}/backend:latest \
-            --set-env-vars AZURE_SPEECH_KEY="${{ secrets.AZURE_SPEECH_KEY }}" AZURE_SPEECH_REGION="${{ vars.AZURE_SPEECH_REGION }}"
+            --set-env-vars AZURE_SPEECH_KEY="${{ env.AZURE_SPEECH_KEY }}" AZURE_SPEECH_REGION="${{ vars.AZURE_SPEECH_REGION }}"
 
       - name: Get backend FQDN
         run: |

@@ -64,9 +64,17 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
         console.log('Language:', language)
 
         // Create speech config with the selected language
+        // Trim whitespace from keys to avoid header issues
+        const speechKey = (process.env.AZURE_SPEECH_KEY || '').trim();
+        const speechRegion = (process.env.AZURE_SPEECH_REGION || '').trim();
+        
+        if (!speechKey || !speechRegion) {
+            throw new Error('AZURE_SPEECH_KEY and AZURE_SPEECH_REGION must be set');
+        }
+        
         const speechConfig = sdk.SpeechConfig.fromSubscription(
-            process.env.AZURE_SPEECH_KEY,
-            process.env.AZURE_SPEECH_REGION
+            speechKey,
+            speechRegion
         );
 
         // Set language if not auto-detect
